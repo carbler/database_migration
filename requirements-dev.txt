@@ -1,0 +1,18 @@
+-r requirements.txt
+
+# Testing
+pytest>=7.4.4
+pytest-cov>=4.1.0
+pytest-mock>=3.12.0
+pytest-asyncio>=0.23.3
+factory-boy>=3.3.0
+
+# Code Quality
+black>=23.12.1
+isort>=5.13.2
+flake8>=7.0.0
+mypy>=1.8.0
+pylint>=3.0.3
+
+# Docker support for tests
+testcontainers>=3.7.1

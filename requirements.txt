@@ -1,0 +1,19 @@
+# Database Drivers
+pymysql>=1.1.0
+psycopg2-binary>=2.9.9
+sqlalchemy>=2.0.25
+
+# Configuration
+python-decouple>=3.8
+
+# CLI
+click>=8.1.7
+rich>=13.7.0  # Beautiful terminal output
+
+# Utilities
+tqdm>=4.66.1  # Progress bars
+pydantic>=2.5.3  # Data validation
+tenacity>=8.2.3  # Retry logic
+
+# Logging
+structlog>=24.1.0
