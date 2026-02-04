@@ -33,6 +33,13 @@ class ValidationService:
     def validate_migration(self, tables: List[Table]) -> ValidationReport:
         report = ValidationReport()
 
+        # Ensure clean state before validation
+        if hasattr(self.target, 'connection') and hasattr(self.target.connection, 'rollback'):
+             try:
+                 self.target.connection.rollback()
+             except Exception:
+                 pass
+
         for table in tables:
             try:
                 # Row counts

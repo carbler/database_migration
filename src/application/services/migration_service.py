@@ -50,16 +50,21 @@ class MigrationService:
             # Disable FKs on main connection for schema operations if needed (e.g. drop table order)
             main_target.disable_foreign_keys()
 
+            failed_schemas = set()
             for table in sorted_tables:
-                self._migrate_schema(main_target, table)
+                success = self._migrate_schema(main_target, table)
+                if not success:
+                    failed_schemas.add(table.name)
 
             # 4. Migrate Data (Parallel)
             logger.info("Migrating data...")
             with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
-                futures = {
-                    executor.submit(self._migrate_table_data, table): table
-                    for table in sorted_tables
-                }
+                futures = {}
+                for table in sorted_tables:
+                    if table.name in failed_schemas:
+                        logger.warning(f"Skipping data migration for {table.name} due to schema failure.")
+                        continue
+                    futures[executor.submit(self._migrate_table_data, table)] = table
 
                 for future in as_completed(futures):
                     table = futures[future]
@@ -94,26 +99,26 @@ class MigrationService:
             main_source.disconnect()
             main_target.disconnect()
 
-    def _migrate_schema(self, target: DatabaseConnector, table: Table):
+    def _migrate_schema(self, target: DatabaseConnector, table: Table) -> bool:
         if self.strategy_name == 'overwrite':
              target.drop_table(table.name)
 
         # Create table
-        # If table exists and not overwrite, create_table usually fails or does nothing if IF NOT EXISTS used.
-        # But our connectors create_table logic might vary.
-        # Assuming create_table handles existence gracefully or fails.
-        # If it fails, we catch it?
         try:
             target.create_table(table)
+            # Prepare (truncate)
+            if self.strategy_name == 'overwrite':
+                 target.truncate_table(table.name)
+
+            # Other strategies don't need prepare usually.
+            self.strategy.prepare(target, table.name)
+            return True
         except Exception as e:
-            logger.warning(f"Schema creation for {table.name} skipped/failed: {e}")
-
-        # Prepare (truncate)
-        if self.strategy_name == 'overwrite':
-             target.truncate_table(table.name)
-
-        # Other strategies don't need prepare usually.
-        self.strategy.prepare(target, table.name)
+            logger.error(f"Schema creation for {table.name} failed: {e}")
+            # Ensure transaction is rolled back if using Postgres so we don't block next steps
+            if hasattr(target, 'connection') and hasattr(target.connection, 'rollback'):
+                 target.connection.rollback()
+            return False
 
 
     def _migrate_table_data(self, table: Table):
@@ -147,7 +152,9 @@ class MigrationService:
                 logger.error(f"Skipping data migration for {table.name} because no columns were found.")
                 return
 
-            # Fetch and Insert
+            # Add robust exception handling for the loop
+            try:
+                # Fetch and Insert
             # Note: fetch_data yields batches
             for batch in source.fetch_data(table.name, self.batch_size):
                 if not batch:
@@ -171,6 +178,13 @@ class MigrationService:
                 count += len(batch)
                 if self.observer:
                     self.observer.on_batch_processed(table.name, count)
+            except Exception as e:
+                 logger.error("error_processing_batch", table=table.name, error=str(e), traceback=True)
+                 # Rollback to avoid transaction abortion affecting other things (though connection is isolated per worker usually,
+                 # but just in case or if shared)
+                 if hasattr(target, 'connection') and hasattr(target.connection, 'rollback'):
+                     target.connection.rollback()
+                 raise e
 
             duration = time.time() - start_time
             if self.observer:

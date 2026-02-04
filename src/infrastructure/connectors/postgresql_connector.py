@@ -20,6 +20,8 @@ class PostgreSQLConnector(BaseConnector):
             dbname=self.config.database,
             sslmode=self.config.ssl_mode if self.config.ssl_mode != 'disable' else None
         )
+        # Register JSON adapter for dict support
+        psycopg2.extras.register_default_json(self.connection)
 
     def disconnect(self) -> None:
         if self.connection:
@@ -150,7 +152,62 @@ class PostgreSQLConnector(BaseConnector):
                 self.connection.rollback()
                 raise
         else:
-            raise ValueError(f"No CREATE TABLE statement found for table '{table.name}'. Ensure pg_dump is available and working.")
+            # Fallback: Create table from metadata
+            # Warning: This does not preserve constraints, defaults, indexes, etc. perfectly.
+            # It's a "best effort" to allow data migration.
+            import structlog
+            logger = structlog.get_logger()
+            logger.warning(f"Constructing basic CREATE TABLE for {table.name} because pg_dump failed.")
+
+            columns_sql = []
+            for col in table.columns:
+                # Map MySQL types to Postgres types roughly
+                # This is fragile but better than failing
+                pg_type = self._map_mysql_type_to_pg(col.data_type)
+
+                # Quote column name
+                col_def = f'"{col.name}" {pg_type}'
+                if not col.is_nullable:
+                    col_def += " NOT NULL"
+                columns_sql.append(col_def)
+
+            if table.primary_key:
+                pk_cols = ", ".join([f'"{c}"' for c in table.primary_key])
+                columns_sql.append(f"PRIMARY KEY ({pk_cols})")
+
+            create_sql = f'CREATE TABLE "{table.name}" ({", ".join(columns_sql)});'
+
+            try:
+                with self.connection.cursor() as cursor:
+                    cursor.execute(create_sql)
+                    self.connection.commit()
+            except Exception as e:
+                self.connection.rollback()
+                raise RuntimeError(f"Failed to create table {table.name} with fallback SQL: {e}")
+
+    def _map_mysql_type_to_pg(self, mysql_type: str) -> str:
+        mysql_type = mysql_type.lower()
+        if 'int' in mysql_type:
+            if 'bigint' in mysql_type: return 'BIGINT'
+            if 'smallint' in mysql_type: return 'SMALLINT'
+            return 'INTEGER'
+        if 'char' in mysql_type:
+            return 'TEXT' # Simple fallback
+        if 'text' in mysql_type:
+            return 'TEXT'
+        if 'blob' in mysql_type:
+            return 'BYTEA'
+        if 'datetime' in mysql_type or 'timestamp' in mysql_type:
+            return 'TIMESTAMP'
+        if 'date' in mysql_type:
+            return 'DATE'
+        if 'float' in mysql_type or 'double' in mysql_type or 'decimal' in mysql_type:
+            return 'NUMERIC'
+        if 'json' in mysql_type:
+            return 'JSONB'
+        if 'bool' in mysql_type:
+            return 'BOOLEAN'
+        return 'TEXT' # Catch-all
 
     def drop_table(self, table_name: str) -> None:
         with self.connection.cursor() as cursor:
