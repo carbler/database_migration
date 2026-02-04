@@ -155,29 +155,29 @@ class MigrationService:
             # Add robust exception handling for the loop
             try:
                 # Fetch and Insert
-            # Note: fetch_data yields batches
-            for batch in source.fetch_data(table.name, self.batch_size):
-                if not batch:
-                    break
+                # Note: fetch_data yields batches
+                for batch in source.fetch_data(table.name, self.batch_size):
+                    if not batch:
+                        break
 
-                # Normalize batch: List[Dict] -> List[Tuple] if needed
-                # psycopg2 execute_batch expects tuples/lists for positional %s
-                # pymysql DictCursor returns dicts.
-                normalized_batch = []
-                for row in batch:
-                    if isinstance(row, dict):
-                        # Extract values in order of 'columns'
-                        # Use .get() to handle missing keys if any, though exact replica implies match
-                        normalized_batch.append(tuple(row.get(col) for col in columns))
-                    else:
-                        normalized_batch.append(row)
+                    # Normalize batch: List[Dict] -> List[Tuple] if needed
+                    # psycopg2 execute_batch expects tuples/lists for positional %s
+                    # pymysql DictCursor returns dicts.
+                    normalized_batch = []
+                    for row in batch:
+                        if isinstance(row, dict):
+                            # Extract values in order of 'columns'
+                            # Use .get() to handle missing keys if any, though exact replica implies match
+                            normalized_batch.append(tuple(row.get(col) for col in columns))
+                        else:
+                            normalized_batch.append(row)
 
-                # Resolve conflict / Insert
-                self.strategy.resolve(target, table.name, normalized_batch, columns, table.primary_key)
+                    # Resolve conflict / Insert
+                    self.strategy.resolve(target, table.name, normalized_batch, columns, table.primary_key)
 
-                count += len(batch)
-                if self.observer:
-                    self.observer.on_batch_processed(table.name, count)
+                    count += len(batch)
+                    if self.observer:
+                        self.observer.on_batch_processed(table.name, count)
             except Exception as e:
                  logger.error("error_processing_batch", table=table.name, error=str(e), traceback=True)
                  # Rollback to avoid transaction abortion affecting other things (though connection is isolated per worker usually,
