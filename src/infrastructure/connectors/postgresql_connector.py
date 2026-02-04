@@ -76,11 +76,11 @@ class PostgreSQLConnector(BaseConnector):
         primary_key = []
 
         with self.connection.cursor() as cursor:
-            # Get columns
+            # Get columns - filtered by schema 'public' to avoid ambiguity
             cursor.execute("""
                 SELECT column_name, data_type, is_nullable, column_default
                 FROM information_schema.columns
-                WHERE table_name = %s
+                WHERE table_name = %s AND table_schema = 'public'
             """, (table_name,))
             rows = cursor.fetchall()
             for row in rows:
@@ -219,11 +219,17 @@ class PostgreSQLConnector(BaseConnector):
             cursor.execute(f"TRUNCATE TABLE \"{table_name}\" CASCADE")
             self.connection.commit()
 
-    def fetch_data(self, table_name: str, batch_size: int = 1000) -> Generator[List[Any], None, None]:
+    def fetch_data(self, table_name: str, columns: List[str] = None, batch_size: int = 1000) -> Generator[List[Any], None, None]:
         # Use named cursor for server-side streaming
         cursor_name = f"curs_{table_name}"
         with self.connection.cursor(name=cursor_name) as cursor:
-            cursor.execute(f"SELECT * FROM \"{table_name}\"")
+            if columns:
+                cols_str = ', '.join([f"\"{c}\"" for c in columns])
+                query = f"SELECT {cols_str} FROM \"{table_name}\""
+            else:
+                query = f"SELECT * FROM \"{table_name}\""
+
+            cursor.execute(query)
             while True:
                 batch = cursor.fetchmany(batch_size)
                 if not batch:

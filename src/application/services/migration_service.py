@@ -156,7 +156,7 @@ class MigrationService:
             try:
                 # Fetch and Insert
                 # Note: fetch_data yields batches
-                for batch in source.fetch_data(table.name, self.batch_size):
+                for batch in source.fetch_data(table.name, columns, self.batch_size):
                     if not batch:
                         break
 

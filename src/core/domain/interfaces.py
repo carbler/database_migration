@@ -37,7 +37,7 @@ class DatabaseConnector(ABC):
         pass
 
     @abstractmethod
-    def fetch_data(self, table_name: str, batch_size: int = 1000) -> Generator[List[Any], None, None]:
+    def fetch_data(self, table_name: str, columns: List[str] = None, batch_size: int = 1000) -> Generator[List[Any], None, None]:
         pass
 
     @abstractmethod

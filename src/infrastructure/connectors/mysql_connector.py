@@ -125,13 +125,17 @@ class MySQLConnector(BaseConnector):
             cursor.execute(f"TRUNCATE TABLE `{table_name}`")
             cursor.execute("SET FOREIGN_KEY_CHECKS = 1")
 
-    def fetch_data(self, table_name: str, batch_size: int = 1000) -> Generator[List[Any], None, None]:
+    def fetch_data(self, table_name: str, columns: List[str] = None, batch_size: int = 1000) -> Generator[List[Any], None, None]:
         # Server-side cursor for large tables
-        # Use simple streaming with limit/offset or server-side cursor?
-        # Pymysql SSCursor is good.
         ss_cursor = pymysql.cursors.SSCursor(self.connection)
         try:
-            ss_cursor.execute(f"SELECT * FROM `{table_name}`")
+            if columns:
+                cols_str = ', '.join([f"`{c}`" for c in columns])
+                query = f"SELECT {cols_str} FROM `{table_name}`"
+            else:
+                query = f"SELECT * FROM `{table_name}`"
+
+            ss_cursor.execute(query)
             while True:
                 batch = ss_cursor.fetchmany(batch_size)
                 if not batch:

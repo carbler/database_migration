@@ -71,7 +71,7 @@ def test_full_migration_flow(mock_factory, mock_settings):
     worker_target.disable_foreign_keys.assert_called_once()
 
     # 6. Data Fetch
-    worker_source.fetch_data.assert_called_with('users', 10)
+    worker_source.fetch_data.assert_called_with('users', ['id', 'name'], 10)
 
     # 7. Data Insert (Resolve)
     # Strategy calls insert_data on target
