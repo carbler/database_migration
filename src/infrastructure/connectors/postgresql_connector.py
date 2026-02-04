@@ -132,6 +132,9 @@ class PostgreSQLConnector(BaseConnector):
                 return result.stdout
             else:
                 # Log warning or fallback
+                import structlog
+                logger = structlog.get_logger()
+                logger.warning(f"pg_dump failed for {table_name}: {result.stderr}")
                 return None
         except FileNotFoundError:
             # pg_dump not found
@@ -139,13 +142,15 @@ class PostgreSQLConnector(BaseConnector):
 
     def create_table(self, table: Table) -> None:
         if table.raw_create_statement:
-            with self.connection.cursor() as cursor:
-                cursor.execute(table.raw_create_statement)
-                self.connection.commit()
+            try:
+                with self.connection.cursor() as cursor:
+                    cursor.execute(table.raw_create_statement)
+                    self.connection.commit()
+            except Exception:
+                self.connection.rollback()
+                raise
         else:
-            # Fallback: create basic table
-            # This is not ideal for exact replica but better than crashing
-            pass
+            raise ValueError(f"No CREATE TABLE statement found for table '{table.name}'. Ensure pg_dump is available and working.")
 
     def drop_table(self, table_name: str) -> None:
         with self.connection.cursor() as cursor:

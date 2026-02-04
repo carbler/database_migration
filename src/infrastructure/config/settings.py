@@ -14,7 +14,8 @@ class Settings:
     SOURCE_DB_PORT = config('SOURCE_DB_PORT', default=3306, cast=int)
     SOURCE_DB_NAME = clean_config(config('SOURCE_DB_NAME', default='source_db'))
     SOURCE_DB_USER = clean_config(config('SOURCE_DB_USER', default='root'))
-    SOURCE_DB_PASSWORD = clean_config(config('SOURCE_DB_PASSWORD', default='secret'))
+    # Do not clean passwords to allow # character
+    SOURCE_DB_PASSWORD = config('SOURCE_DB_PASSWORD', default='secret')
     SOURCE_DB_SSL_MODE = clean_config(config('SOURCE_DB_SSL_MODE', default='disable'))
 
     # Target DB
@@ -23,7 +24,8 @@ class Settings:
     TARGET_DB_PORT = config('TARGET_DB_PORT', default=3306, cast=int)
     TARGET_DB_NAME = clean_config(config('TARGET_DB_NAME', default='target_db'))
     TARGET_DB_USER = clean_config(config('TARGET_DB_USER', default='root'))
-    TARGET_DB_PASSWORD = clean_config(config('TARGET_DB_PASSWORD', default='secret'))
+    # Do not clean passwords to allow # character
+    TARGET_DB_PASSWORD = config('TARGET_DB_PASSWORD', default='secret')
     TARGET_DB_SSL_MODE = clean_config(config('TARGET_DB_SSL_MODE', default='disable'))
 
     # Migration Settings

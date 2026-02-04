@@ -41,7 +41,7 @@ class ValidationService:
                 report.add_count_check(table.name, source_count, target_count)
 
                 # Checksum sample (simplified)
-                if table.primary_key:
+                if table.primary_key and len(table.primary_key) > 0:
                     source_rows = self.source.fetch_sample_rows(table.name, table.primary_key, 1000)
                     target_rows = self.target.fetch_sample_rows(table.name, table.primary_key, 1000)
 
