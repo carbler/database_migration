@@ -5,10 +5,13 @@ __pycache__/
 
 # Environment
 .env
+.env.*
 .venv
 env/
 venv/
 ENV/
+myenv/
+python_env/
 
 # Distribution / packaging
 dist/
@@ -23,7 +26,12 @@ logs/
 .pytest_cache/
 .coverage
 htmlcov/
+junit/
 
 # IDEs
 .vscode/
 .idea/
+
+# OS specific
+.DS_Store
+Thumbs.db
