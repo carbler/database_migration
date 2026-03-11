@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "db-clone"
+name = "database_migration"
 version = "0.1.0"
 description = "Professional database cloning tool for PostgreSQL and MySQL"
 readme = "README.md"
@@ -47,9 +47,9 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/erley/db-clone"
-Repository = "https://github.com/erley/db-clone"
-Issues = "https://github.com/erley/db-clone/issues"
+Homepage = "https://github.com/carbler/database_migration"
+Repository = "https://github.com/carbler/database_migration"
+Issues = "https://github.com/carbler/database_migration/issues"
 
 [project.scripts]
 db-clone = "db_clone.cli:app"
